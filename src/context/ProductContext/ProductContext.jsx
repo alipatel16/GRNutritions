@@ -1,13 +1,12 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+// ==================== ProductContext.jsx (FIXED) ====================
+import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import databaseService from '../../services/firebase/database';
 import { PRODUCT_CATEGORIES, getAllCategories } from '../../utils/constants/categories';
 import { BUSINESS_CONSTANTS } from '../../utils/constants/orderStatus';
 import { toast } from 'react-toastify';
 
-// Product context
 const ProductContext = createContext();
 
-// Product action types
 const PRODUCT_ACTIONS = {
   SET_LOADING: 'SET_LOADING',
   SET_PRODUCTS: 'SET_PRODUCTS',
@@ -24,7 +23,6 @@ const PRODUCT_ACTIONS = {
   REMOVE_PRODUCT: 'REMOVE_PRODUCT'
 };
 
-// Initial state
 const initialState = {
   products: [],
   categories: getAllCategories(),
@@ -51,14 +49,10 @@ const initialState = {
   lastUpdated: null
 };
 
-// Product reducer
 const productReducer = (state, action) => {
   switch (action.type) {
     case PRODUCT_ACTIONS.SET_LOADING:
-      return {
-        ...state,
-        loading: action.payload
-      };
+      return { ...state, loading: action.payload };
 
     case PRODUCT_ACTIONS.SET_PRODUCTS:
       return {
@@ -70,66 +64,33 @@ const productReducer = (state, action) => {
       };
 
     case PRODUCT_ACTIONS.SET_CATEGORIES:
-      return {
-        ...state,
-        categories: action.payload,
-        loading: false
-      };
+      return { ...state, categories: action.payload, loading: false };
 
     case PRODUCT_ACTIONS.SET_FEATURED_PRODUCTS:
-      return {
-        ...state,
-        featuredProducts: action.payload,
-        loading: false
-      };
+      return { ...state, featuredProducts: action.payload, loading: false };
 
     case PRODUCT_ACTIONS.SET_CURRENT_PRODUCT:
-      return {
-        ...state,
-        currentProduct: action.payload,
-        loading: false,
-        error: null
-      };
+      return { ...state, currentProduct: action.payload, loading: false, error: null };
 
     case PRODUCT_ACTIONS.SET_SEARCH_RESULTS:
       return {
         ...state,
         searchResults: action.payload.results,
         searchTerm: action.payload.searchTerm,
-        pagination: {
-          ...state.pagination,
-          currentPage: action.payload.page || 1,
-          totalPages: action.payload.totalPages || 1,
-          totalItems: action.payload.total || 0
-        },
         loading: false
       };
 
     case PRODUCT_ACTIONS.SET_FILTERS:
-      return {
-        ...state,
-        filters: { ...state.filters, ...action.payload },
-        pagination: { ...state.pagination, currentPage: 1 }
-      };
+      return { ...state, filters: { ...state.filters, ...action.payload } };
 
     case PRODUCT_ACTIONS.SET_PAGINATION:
-      return {
-        ...state,
-        pagination: { ...state.pagination, ...action.payload }
-      };
+      return { ...state, pagination: { ...state.pagination, ...action.payload } };
 
     case PRODUCT_ACTIONS.SET_ERROR:
-      return {
-        ...state,
-        error: action.payload,
-        loading: false
-      };
+      return { ...state, error: action.payload, loading: false };
 
     case PRODUCT_ACTIONS.CLEAR_ERROR:
-      return {
-        ...state,
-        error: null
-      };
+      return { ...state, error: null };
 
     case PRODUCT_ACTIONS.ADD_PRODUCT:
       return {
@@ -165,19 +126,11 @@ const productReducer = (state, action) => {
   }
 };
 
-// Product provider component
 export const ProductProvider = ({ children }) => {
   const [state, dispatch] = useReducer(productReducer, initialState);
 
-  // Load initial data
-  useEffect(() => {
-    loadProducts();
-    loadCategories();
-    loadFeaturedProducts();
-  }, []);
-
-  // Load products
-  const loadProducts = async (filters = {}) => {
+  // FIX: Wrap all data loading functions in useCallback to prevent recreating on every render
+  const loadProducts = useCallback(async (filters = {}) => {
     try {
       dispatch({ type: PRODUCT_ACTIONS.SET_LOADING, payload: true });
       
@@ -197,28 +150,24 @@ export const ProductProvider = ({ children }) => {
       console.error('Error loading products:', error);
       dispatch({ type: PRODUCT_ACTIONS.SET_ERROR, payload: 'Failed to load products' });
     }
-  };
+  }, [state.pagination.itemsPerPage]);
 
-  // Load categories
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
       const result = await databaseService.getCategories();
       
       if (result.success) {
-        // Merge with predefined categories
         const dbCategories = result.data || [];
         const allCategories = [...getAllCategories(), ...dbCategories];
         dispatch({ type: PRODUCT_ACTIONS.SET_CATEGORIES, payload: allCategories });
       }
     } catch (error) {
       console.error('Error loading categories:', error);
-      // Use predefined categories as fallback
       dispatch({ type: PRODUCT_ACTIONS.SET_CATEGORIES, payload: getAllCategories() });
     }
-  };
+  }, []);
 
-  // Load featured products
-  const loadFeaturedProducts = async () => {
+  const loadFeaturedProducts = useCallback(async () => {
     try {
       const result = await databaseService.query('products', {
         orderBy: { type: 'child', key: 'featured' },
@@ -232,97 +181,86 @@ export const ProductProvider = ({ children }) => {
     } catch (error) {
       console.error('Error loading featured products:', error);
     }
-  };
+  }, []);
+
+  // FIX: Use useEffect with empty dependency array, but call the useCallback functions
+  useEffect(() => {
+    loadProducts();
+    loadCategories();
+    loadFeaturedProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   // Get product by ID
-  const getProductById = async (productId) => {
+  const getProductById = useCallback(async (productId) => {
     try {
       dispatch({ type: PRODUCT_ACTIONS.SET_LOADING, payload: true });
       
       const result = await databaseService.getProductById(productId);
       
-      if (result.success && result.data) {
+      if (result.success) {
         dispatch({ type: PRODUCT_ACTIONS.SET_CURRENT_PRODUCT, payload: result.data });
         return { success: true, data: result.data };
       } else {
         dispatch({ type: PRODUCT_ACTIONS.SET_ERROR, payload: 'Product not found' });
-        return { success: false, error: 'Product not found' };
+        return { success: false };
       }
     } catch (error) {
       console.error('Error getting product:', error);
       dispatch({ type: PRODUCT_ACTIONS.SET_ERROR, payload: 'Failed to load product' });
-      return { success: false, error: 'Failed to load product' };
+      return { success: false };
     }
-  };
+  }, []);
 
   // Get products by category
-  const getProductsByCategory = async (categoryId, page = 1) => {
+  const getProductsByCategory = useCallback(async (category) => {
     try {
       dispatch({ type: PRODUCT_ACTIONS.SET_LOADING, payload: true });
       
-      const limit = state.pagination.itemsPerPage;
-      const result = await databaseService.getProductsByCategory(categoryId, limit);
+      const result = await databaseService.query('products', {
+        orderBy: { type: 'child', key: 'category' },
+        equalTo: category
+      });
       
       if (result.success) {
         dispatch({ type: PRODUCT_ACTIONS.SET_PRODUCTS, payload: result.data || [] });
-        dispatch({
-          type: PRODUCT_ACTIONS.SET_PAGINATION,
-          payload: {
-            currentPage: page,
-            totalItems: result.data?.length || 0
-          }
-        });
-        return { success: true };
-      } else {
-        dispatch({ type: PRODUCT_ACTIONS.SET_ERROR, payload: 'Failed to load category products' });
-        return { success: false };
+        return { success: true, data: result.data };
       }
     } catch (error) {
       console.error('Error getting products by category:', error);
-      dispatch({ type: PRODUCT_ACTIONS.SET_ERROR, payload: 'Failed to load category products' });
-      return { success: false };
+      dispatch({ type: PRODUCT_ACTIONS.SET_ERROR, payload: 'Failed to load products' });
     }
-  };
+  }, []);
 
   // Search products
-  const searchProducts = async (searchTerm, filters = {}, page = 1) => {
+  const searchProducts = useCallback(async (searchTerm) => {
     try {
       dispatch({ type: PRODUCT_ACTIONS.SET_LOADING, payload: true });
       
-      const searchFilters = {
-        ...state.filters,
-        ...filters,
-        page,
-        limit: state.pagination.itemsPerPage
-      };
+      const allProducts = await databaseService.getProducts({});
       
-      const result = await databaseService.searchProducts(searchTerm, searchFilters);
-      
-      if (result.success) {
+      if (allProducts.success) {
+        const results = (allProducts.data || []).filter(product =>
+          product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          product.category?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        
         dispatch({
           type: PRODUCT_ACTIONS.SET_SEARCH_RESULTS,
-          payload: {
-            results: result.data || [],
-            searchTerm,
-            page: result.page || 1,
-            totalPages: result.totalPages || 1,
-            total: result.total || 0
-          }
+          payload: { results, searchTerm }
         });
-        return { success: true, data: result };
-      } else {
-        dispatch({ type: PRODUCT_ACTIONS.SET_ERROR, payload: 'Search failed' });
-        return { success: false };
+        
+        return { success: true, data: results };
       }
     } catch (error) {
       console.error('Error searching products:', error);
-      dispatch({ type: PRODUCT_ACTIONS.SET_ERROR, payload: 'Search failed' });
-      return { success: false };
+      dispatch({ type: PRODUCT_ACTIONS.SET_ERROR, payload: 'Failed to search products' });
     }
-  };
+  }, []);
 
-  // Create product (admin only)
-  const createProduct = async (productData) => {
+  // Create product (admin)
+  const createProduct = useCallback(async (productData) => {
     try {
       dispatch({ type: PRODUCT_ACTIONS.SET_LOADING, payload: true });
       
@@ -343,10 +281,10 @@ export const ProductProvider = ({ children }) => {
       toast.error('Failed to create product');
       return { success: false };
     }
-  };
+  }, []);
 
-  // Update product (admin only)
-  const updateProduct = async (productId, updates) => {
+  // Update product (admin)
+  const updateProduct = useCallback(async (productId, updates) => {
     try {
       dispatch({ type: PRODUCT_ACTIONS.SET_LOADING, payload: true });
       
@@ -356,7 +294,7 @@ export const ProductProvider = ({ children }) => {
         const updatedProduct = { id: productId, ...updates };
         dispatch({ type: PRODUCT_ACTIONS.UPDATE_PRODUCT, payload: updatedProduct });
         toast.success('Product updated successfully');
-        return { success: true, data: updatedProduct };
+        return { success: true };
       } else {
         dispatch({ type: PRODUCT_ACTIONS.SET_ERROR, payload: 'Failed to update product' });
         toast.error('Failed to update product');
@@ -368,10 +306,10 @@ export const ProductProvider = ({ children }) => {
       toast.error('Failed to update product');
       return { success: false };
     }
-  };
+  }, []);
 
-  // Delete product (admin only)
-  const deleteProduct = async (productId) => {
+  // Delete product (admin)
+  const deleteProduct = useCallback(async (productId) => {
     try {
       dispatch({ type: PRODUCT_ACTIONS.SET_LOADING, payload: true });
       
@@ -392,177 +330,141 @@ export const ProductProvider = ({ children }) => {
       toast.error('Failed to delete product');
       return { success: false };
     }
-  };
+  }, []);
 
-  // Update filters
-  const updateFilters = (newFilters) => {
+  // Filter and pagination helpers
+  const updateFilters = useCallback((newFilters) => {
     dispatch({ type: PRODUCT_ACTIONS.SET_FILTERS, payload: newFilters });
-  };
+  }, []);
 
-  // Clear filters
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     dispatch({ type: PRODUCT_ACTIONS.SET_FILTERS, payload: initialState.filters });
-  };
+  }, []);
 
-  // Update pagination
-  const updatePagination = (paginationData) => {
-    dispatch({ type: PRODUCT_ACTIONS.SET_PAGINATION, payload: paginationData });
-  };
+  const updatePagination = useCallback((newPagination) => {
+    dispatch({ type: PRODUCT_ACTIONS.SET_PAGINATION, payload: newPagination });
+  }, []);
 
-  // Get filtered and sorted products
-  const getFilteredProducts = () => {
-    let filteredProducts = [...state.products];
+  const getFilteredProducts = useCallback(() => {
+    let filtered = [...state.products];
 
-    // Apply category filter
     if (state.filters.category) {
-      filteredProducts = filteredProducts.filter(
-        product => product.category === state.filters.category
-      );
+      filtered = filtered.filter(p => p.category === state.filters.category);
     }
 
-    // Apply price filter
-    filteredProducts = filteredProducts.filter(
-      product => product.price >= state.filters.minPrice && 
-                 product.price <= state.filters.maxPrice
-    );
-
-    // Apply stock filter
     if (state.filters.inStock) {
-      filteredProducts = filteredProducts.filter(
-        product => product.inventory > 0
-      );
+      filtered = filtered.filter(p => p.inventory > 0);
     }
 
-    // Apply rating filter
+    if (state.filters.minPrice > 0) {
+      filtered = filtered.filter(p => p.price >= state.filters.minPrice);
+    }
+
+    if (state.filters.maxPrice < 10000) {
+      filtered = filtered.filter(p => p.price <= state.filters.maxPrice);
+    }
+
     if (state.filters.rating > 0) {
-      filteredProducts = filteredProducts.filter(
-        product => (product.averageRating || 0) >= state.filters.rating
-      );
+      filtered = filtered.filter(p => (p.averageRating || 0) >= state.filters.rating);
     }
 
-    // Apply sorting
-    filteredProducts.sort((a, b) => {
-      switch (state.filters.sortBy) {
-        case 'price_low':
-          return a.price - b.price;
-        case 'price_high':
-          return b.price - a.price;
-        case 'name':
-          return a.name.localeCompare(b.name);
-        case 'rating':
-          return (b.averageRating || 0) - (a.averageRating || 0);
-        case 'newest':
-          return new Date(b.createdAt) - new Date(a.createdAt);
-        case 'oldest':
-          return new Date(a.createdAt) - new Date(b.createdAt);
-        default:
-          return 0;
-      }
-    });
+    // Sort
+    switch (state.filters.sortBy) {
+      case 'price-low':
+        filtered.sort((a, b) => a.price - b.price);
+        break;
+      case 'price-high':
+        filtered.sort((a, b) => b.price - a.price);
+        break;
+      case 'rating':
+        filtered.sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0));
+        break;
+      case 'newest':
+      default:
+        filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        break;
+    }
 
-    return filteredProducts;
-  };
+    return filtered;
+  }, [state.products, state.filters]);
 
-  // Get products for current page
-  const getPaginatedProducts = () => {
-    const filteredProducts = getFilteredProducts();
-    const startIndex = (state.pagination.currentPage - 1) * state.pagination.itemsPerPage;
-    const endIndex = startIndex + state.pagination.itemsPerPage;
+  const getPaginatedProducts = useCallback(() => {
+    const filtered = getFilteredProducts();
+    const start = (state.pagination.currentPage - 1) * state.pagination.itemsPerPage;
+    const end = start + state.pagination.itemsPerPage;
     
     return {
-      products: filteredProducts.slice(startIndex, endIndex),
-      totalItems: filteredProducts.length,
-      totalPages: Math.ceil(filteredProducts.length / state.pagination.itemsPerPage)
+      products: filtered.slice(start, end),
+      totalPages: Math.ceil(filtered.length / state.pagination.itemsPerPage),
+      totalItems: filtered.length
     };
-  };
+  }, [getFilteredProducts, state.pagination]);
 
-  // Get product recommendations
-  const getRecommendedProducts = (currentProductId, category, limit = 6) => {
+  // Product recommendations
+  const getRecommendedProducts = useCallback((currentProductId, limit = 4) => {
     return state.products
-      .filter(product => 
-        product.id !== currentProductId && 
-        product.category === category &&
-        product.inventory > 0
-      )
-      .sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0))
+      .filter(p => p.id !== currentProductId && p.inventory > 0)
       .slice(0, limit);
-  };
+  }, [state.products]);
 
-  // Get new arrivals
-  const getNewArrivals = (limit = 8) => {
+  const getNewArrivals = useCallback((limit = 8) => {
     return state.products
-      .filter(product => product.inventory > 0)
+      .filter(p => p.inventory > 0)
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, limit);
-  };
+  }, [state.products]);
 
-  // Get best sellers (based on sales count)
-  const getBestSellers = (limit = 8) => {
+  const getBestSellers = useCallback((limit = 8) => {
     return state.products
-      .filter(product => product.inventory > 0)
+      .filter(p => p.inventory > 0)
       .sort((a, b) => (b.salesCount || 0) - (a.salesCount || 0))
       .slice(0, limit);
-  };
+  }, [state.products]);
 
-  // Get top rated products
-  const getTopRatedProducts = (limit = 8) => {
+  const getTopRatedProducts = useCallback((limit = 8) => {
     return state.products
-      .filter(product => 
-        product.inventory > 0 && 
-        (product.averageRating || 0) >= 4.0 &&
-        (product.reviewCount || 0) >= 5
+      .filter(p => 
+        p.inventory > 0 && 
+        (p.averageRating || 0) >= 4.0 &&
+        (p.reviewCount || 0) >= 5
       )
       .sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0))
       .slice(0, limit);
-  };
+  }, [state.products]);
 
-  // Clear error
-  const clearError = () => {
+  // Utility methods
+  const clearError = useCallback(() => {
     dispatch({ type: PRODUCT_ACTIONS.CLEAR_ERROR });
-  };
+  }, []);
 
-  // Clear current product
-  const clearCurrentProduct = () => {
+  const clearCurrentProduct = useCallback(() => {
     dispatch({ type: PRODUCT_ACTIONS.SET_CURRENT_PRODUCT, payload: null });
-  };
+  }, []);
 
-  // Refresh products
-  const refreshProducts = () => {
+  const refreshProducts = useCallback(() => {
     loadProducts();
-  };
+  }, [loadProducts]);
 
-  // Context value
   const value = {
-    // State
     ...state,
-    
-    // Data loading methods
     loadProducts,
     loadCategories,
     loadFeaturedProducts,
     getProductById,
     getProductsByCategory,
     searchProducts,
-    
-    // Product CRUD (admin)
     createProduct,
     updateProduct,
     deleteProduct,
-    
-    // Filter and pagination
     updateFilters,
     clearFilters,
     updatePagination,
     getFilteredProducts,
     getPaginatedProducts,
-    
-    // Product recommendations and lists
     getRecommendedProducts,
     getNewArrivals,
     getBestSellers,
     getTopRatedProducts,
-    
-    // Utility methods
     clearError,
     clearCurrentProduct,
     refreshProducts
@@ -575,7 +477,6 @@ export const ProductProvider = ({ children }) => {
   );
 };
 
-// Custom hook to use product context
 export const useProducts = () => {
   const context = useContext(ProductContext);
   

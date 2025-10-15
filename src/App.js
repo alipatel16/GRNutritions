@@ -39,6 +39,8 @@ const AdminProducts = lazy(() => import('./pages/Admin/Products/AdminProducts'))
 const AdminOrders = lazy(() => import('./pages/Admin/Orders/AdminOrders'));
 const AdminInventory = lazy(() => import('./pages/Admin/Inventory/AdminInventory'));
 const AdminUsers = lazy(() => import('./pages/Admin/Users/AdminUsers'));
+const AdminCategories = lazy(() => import('./pages/Admin/Categories/AdminCategories'));
+
 // const AdminSettings = lazy(() => import('./pages/Admin/Settings/AdminSettings'));
 
 function App() {
@@ -177,7 +179,7 @@ function App() {
                         <Route path="products" element={<AdminProducts />} />
                         <Route path="products/add" element={<AdminProducts />} />
                         <Route path="products/:id/edit" element={<AdminProducts />} />
-                        <Route path="categories" element={<AdminProducts />} />
+                        <Route path="categories" element={<AdminCategories />} />
                         <Route path="orders" element={<AdminOrders />} />
                         <Route path="orders/:id" element={<AdminOrders />} />
                         <Route path="inventory" element={<AdminInventory />} />

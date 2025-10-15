@@ -40,7 +40,7 @@ const ProductReviews = ({ productId }) => {
   };
 
   const handleSubmitReview = async (reviewData) => {
-    await databaseService.addReview(reviewData);
+    await databaseService.createReview(reviewData);
     loadReviews();
     setShowForm(false);
   };

@@ -15,7 +15,7 @@ import { useProducts } from '../../../context/ProductContext/ProductContext';
 import toast from '../../../services/notification/toast';
 
 const ProductManagement = () => {
-  const { products, loading, loadProducts, addProduct, updateProduct, deleteProduct } = useProducts();
+  const { products, loading, loadProducts, createProduct, updateProduct, deleteProduct } = useProducts();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
 
@@ -25,7 +25,7 @@ const ProductManagement = () => {
 
   const handleAddProduct = async (productData) => {
     try {
-      await addProduct(productData);
+      await createProduct(productData);
       toast.messages.productAdded();
       setDialogOpen(false);
     } catch (error) {

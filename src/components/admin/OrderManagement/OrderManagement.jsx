@@ -23,7 +23,7 @@ const OrderManagement = () => {
   const loadOrders = async () => {
     setLoading(true);
     try {
-      const result = await databaseService.getOrders();
+      const result = await databaseService.getAllOrders();
       if (result.success) {
         setOrders(result.data || []);
       }

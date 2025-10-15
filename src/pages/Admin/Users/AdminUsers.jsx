@@ -41,6 +41,7 @@ import LoadingSpinner from '../../../components/common/LoadingSpinner/LoadingSpi
 import { formatDateTime } from '../../../utils/helpers/formatters';
 import { USER_ROLES } from '../../../utils/constants/orderStatus';
 import { toast } from 'react-toastify';
+import usersAPI from '../../../services/api/users';
 
 const HeaderBox = styled(Box)(({ theme }) => ({
   display: 'flex',
@@ -74,7 +75,7 @@ const AdminUsers = () => {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const result = await databaseService.getAllUsers();
+      const result = await usersAPI.getAllUsers();
       if (result.success) {
         setUsers(result.data || []);
       }

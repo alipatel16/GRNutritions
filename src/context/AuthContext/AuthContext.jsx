@@ -1,11 +1,9 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import authService from '../../services/firebase/auth';
 import { toast } from 'react-toastify';
 
-// Auth context
 const AuthContext = createContext();
 
-// Auth action types
 const AUTH_ACTIONS = {
   SET_LOADING: 'SET_LOADING',
   SET_USER: 'SET_USER',
@@ -14,7 +12,6 @@ const AUTH_ACTIONS = {
   SET_INITIALIZED: 'SET_INITIALIZED'
 };
 
-// Initial state
 const initialState = {
   user: null,
   isAuthenticated: false,
@@ -24,14 +21,10 @@ const initialState = {
   initialized: false
 };
 
-// Auth reducer
 const authReducer = (state, action) => {
   switch (action.type) {
     case AUTH_ACTIONS.SET_LOADING:
-      return {
-        ...state,
-        loading: action.payload
-      };
+      return { ...state, loading: action.payload };
     
     case AUTH_ACTIONS.SET_USER:
       return {
@@ -44,48 +37,35 @@ const authReducer = (state, action) => {
       };
     
     case AUTH_ACTIONS.SET_ERROR:
-      return {
-        ...state,
-        error: action.payload,
-        loading: false
-      };
+      return { ...state, error: action.payload, loading: false };
     
     case AUTH_ACTIONS.CLEAR_ERROR:
-      return {
-        ...state,
-        error: null
-      };
+      return { ...state, error: null };
     
     case AUTH_ACTIONS.SET_INITIALIZED:
-      return {
-        ...state,
-        initialized: true,
-        loading: false
-      };
+      return { ...state, initialized: true, loading: false };
     
     default:
       return state;
   }
 };
 
-// Auth provider component
 export const AuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // Initialize auth listener
+  // CRITICAL FIX: Empty dependency array!
   useEffect(() => {
+    let initialized = false;
     const unsubscribe = authService.addAuthListener((user) => {
       dispatch({ type: AUTH_ACTIONS.SET_USER, payload: user });
-      
-      if (!state.initialized) {
+      if (!initialized) {
+        initialized = true;
         dispatch({ type: AUTH_ACTIONS.SET_INITIALIZED });
       }
     });
-
     return unsubscribe;
-  }, [state.initialized]);
+  }, []); // EMPTY ARRAY - RUNS ONCE!
 
-  // Register new user
   const register = async (userData) => {
     try {
       dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
@@ -114,7 +94,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Login user
   const login = async (email, password) => {
     try {
       dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
@@ -136,13 +115,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Logout user
   const logout = async () => {
     try {
       dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
-      
       const result = await authService.logout();
-      
       if (result.success) {
         toast.success(result.message);
         return { success: true };
@@ -156,14 +132,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Reset password
   const resetPassword = async (email) => {
     try {
       dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
       dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
-      
       const result = await authService.resetPassword(email);
-      
       if (result.success) {
         toast.success(result.message);
         return { success: true };
@@ -178,13 +151,9 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Send email verification
   const sendEmailVerification = async () => {
     try {
-      dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
-      
       const result = await authService.sendEmailVerification();
-      
       if (result.success) {
         toast.success(result.message);
         return { success: true };
@@ -193,19 +162,14 @@ export const AuthProvider = ({ children }) => {
       const errorMessage = error.message || 'Failed to send verification email';
       toast.error(errorMessage);
       return { success: false, error: errorMessage };
-    } finally {
-      dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: false });
     }
   };
 
-  // Update user profile
   const updateProfile = async (updates) => {
     try {
       dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
       dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
-      
       const result = await authService.updateUserProfile(updates);
-      
       if (result.success) {
         toast.success(result.message);
         return { success: true };
@@ -220,14 +184,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Update user email
   const updateEmail = async (newEmail, currentPassword) => {
     try {
       dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
       dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
-      
       const result = await authService.updateUserEmail(newEmail, currentPassword);
-      
       if (result.success) {
         toast.success(result.message);
         return { success: true };
@@ -242,14 +203,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Update user password
   const updatePassword = async (currentPassword, newPassword) => {
     try {
       dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
       dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
-      
       const result = await authService.updateUserPassword(currentPassword, newPassword);
-      
       if (result.success) {
         toast.success(result.message);
         return { success: true };
@@ -264,14 +222,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Delete user account
   const deleteAccount = async (currentPassword) => {
     try {
       dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
       dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
-      
       const result = await authService.deleteAccount(currentPassword);
-      
       if (result.success) {
         toast.success(result.message);
         return { success: true };
@@ -286,7 +241,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Check if user is admin
   const checkAdminStatus = async (uid = null) => {
     try {
       const isAdmin = await authService.isAdmin(uid);
@@ -297,12 +251,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Clear error
-  const clearError = () => {
+  // CRITICAL FIX: useCallback!
+  const clearError = useCallback(() => {
     dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
-  };
+  }, []);
 
-  // Refresh user data
   const refreshUser = async () => {
     try {
       if (state.user?.uid) {
@@ -319,56 +272,39 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Check if user has permission
   const hasPermission = (permission) => {
     if (!state.user) return false;
-    
-    // Admin has all permissions
     if (state.isAdmin) return true;
-    
-    // Check user-specific permissions
     const userPermissions = state.user.permissions || [];
     return userPermissions.includes(permission);
   };
 
-  // Check if email is verified
   const isEmailVerified = () => {
     return state.user?.emailVerified || false;
   };
 
-  // Get user display name
   const getDisplayName = () => {
     if (!state.user) return '';
     return state.user.displayName || state.user.email?.split('@')[0] || 'User';
   };
 
-  // Context value
   const value = {
-    // State
     ...state,
-    
-    // Authentication methods
     register,
     login,
     logout,
     resetPassword,
     sendEmailVerification,
-    
-    // Profile management
     updateProfile,
     updateEmail,
     updatePassword,
     deleteAccount,
     refreshUser,
-    
-    // Utility methods
     checkAdminStatus,
     hasPermission,
     isEmailVerified,
     getDisplayName,
     clearError,
-    
-    // Auth service reference (for advanced use cases)
     authService
   };
 
@@ -379,52 +315,30 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-// Custom hook to use auth context
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-  
   return context;
 };
 
-// Higher-order component for protected routes
 export const withAuth = (WrappedComponent, requireAdmin = false) => {
   return function AuthenticatedComponent(props) {
     const { isAuthenticated, isAdmin, loading, initialized } = useAuth();
     
-    // Show loading while auth is initializing
     if (!initialized || loading) {
-      return (
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '100vh' 
-        }}>
-          Loading...
-        </div>
-      );
+      return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading...</div>;
     }
     
-    // Redirect to login if not authenticated
     if (!isAuthenticated) {
       window.location.href = '/login';
       return null;
     }
     
-    // Check admin requirement
     if (requireAdmin && !isAdmin) {
       return (
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '100vh',
-          flexDirection: 'column'
-        }}>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column' }}>
           <h2>Access Denied</h2>
           <p>You don't have permission to access this page.</p>
         </div>

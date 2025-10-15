@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+// ==================== CartContext.jsx (FIXED) ====================
+import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import { useAuth } from '../AuthContext/AuthContext';
 import databaseService from '../../services/firebase/database';
 import { BUSINESS_CONSTANTS } from '../../utils/constants/orderStatus';
@@ -164,28 +165,13 @@ export const CartProvider = ({ children }) => {
   const [state, dispatch] = useReducer(cartReducer, initialState);
   const { user, isAuthenticated } = useAuth();
 
-  // Load cart data when user changes
-  useEffect(() => {
-    if (isAuthenticated && user?.uid) {
-      loadCart();
-    } else {
-      // Load from localStorage for guest users
-      loadLocalCart();
+  // Load cart from database - FIX: wrapped in useCallback
+  const loadCart = useCallback(async () => {
+    // FIX: Only load cart if user is authenticated
+    if (!isAuthenticated || !user?.uid) {
+      return;
     }
-  }, [isAuthenticated, user?.uid]);
 
-  // Sync cart to database when items change
-  useEffect(() => {
-    if (isAuthenticated && user?.uid && state.lastUpdated) {
-      syncCartToDatabase();
-    } else if (!isAuthenticated && state.lastUpdated) {
-      // Save to localStorage for guest users
-      saveLocalCart();
-    }
-  }, [state.items, isAuthenticated, user?.uid]);
-
-  // Load cart from database
-  const loadCart = async () => {
     try {
       dispatch({ type: CART_ACTIONS.SET_LOADING, payload: true });
       
@@ -233,12 +219,17 @@ export const CartProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Error loading cart:', error);
-      dispatch({ type: CART_ACTIONS.SET_ERROR, payload: 'Failed to load cart' });
+      // Don't show error toast for permission denied on unauthenticated users
+      if (error.message && !error.message.includes('Permission denied')) {
+        dispatch({ type: CART_ACTIONS.SET_ERROR, payload: 'Failed to load cart' });
+      }
+    } finally {
+      dispatch({ type: CART_ACTIONS.SET_LOADING, payload: false });
     }
-  };
+  }, [isAuthenticated, user?.uid]);
 
   // Load cart from localStorage
-  const loadLocalCart = () => {
+  const loadLocalCart = useCallback(() => {
     try {
       const savedCart = localStorage.getItem('nutrition_shop_cart');
       if (savedCart) {
@@ -254,19 +245,31 @@ export const CartProvider = ({ children }) => {
     } catch (error) {
       console.error('Error loading local cart:', error);
     }
-  };
+  }, []);
+
+  // Load cart data when user changes
+  useEffect(() => {
+    if (isAuthenticated && user?.uid) {
+      loadCart();
+    } else {
+      // Load from localStorage for guest users
+      loadLocalCart();
+    }
+  }, [isAuthenticated, user?.uid, loadCart, loadLocalCart]);
 
   // Save cart to localStorage
-  const saveLocalCart = () => {
+  const saveLocalCart = useCallback(() => {
     try {
       localStorage.setItem('nutrition_shop_cart', JSON.stringify(state));
     } catch (error) {
       console.error('Error saving local cart:', error);
     }
-  };
+  }, [state]);
 
   // Sync cart to database
-  const syncCartToDatabase = async () => {
+  const syncCartToDatabase = useCallback(async () => {
+    if (!isAuthenticated || !user?.uid) return;
+    
     try {
       if (state.syncing) return; // Prevent duplicate syncs
       
@@ -286,7 +289,17 @@ export const CartProvider = ({ children }) => {
     } finally {
       dispatch({ type: CART_ACTIONS.SET_SYNCING, payload: false });
     }
-  };
+  }, [isAuthenticated, user?.uid, state.items, state.syncing]);
+
+  // Sync cart to database when items change
+  useEffect(() => {
+    if (isAuthenticated && user?.uid && state.lastUpdated) {
+      syncCartToDatabase();
+    } else if (!isAuthenticated && state.lastUpdated) {
+      // Save to localStorage for guest users
+      saveLocalCart();
+    }
+  }, [state.items, state.lastUpdated, isAuthenticated, user?.uid, syncCartToDatabase, saveLocalCart]);
 
   // Add item to cart
   const addToCart = async (product, quantity = 1) => {
@@ -324,9 +337,8 @@ export const CartProvider = ({ children }) => {
         price: product.price,
         image: product.images?.[0] || '',
         quantity,
-        addedAt: Date.now(),
-        inStock: true,
-        maxQuantity: product.inventory
+        maxQuantity: product.inventory,
+        addedAt: Date.now()
       };
 
       dispatch({ type: CART_ACTIONS.ADD_ITEM, payload: cartItem });
@@ -341,20 +353,20 @@ export const CartProvider = ({ children }) => {
   };
 
   // Update item quantity
-  const updateQuantity = async (productId, newQuantity) => {
+  const updateQuantity = async (productId, quantity) => {
     try {
-      if (newQuantity <= 0) {
+      if (quantity <= 0) {
         return removeFromCart(productId);
       }
 
-      const item = state.items.find(item => item.productId === productId);
+      const item = state.items.find(i => i.productId === productId);
       if (!item) {
         toast.error('Item not found in cart');
         return { success: false };
       }
 
-      if (newQuantity > item.maxQuantity) {
-        toast.error(`Only ${item.maxQuantity} items available`);
+      if (quantity > item.maxQuantity) {
+        toast.error(`Only ${item.maxQuantity} items available in stock`);
         return { success: false };
       }
 
@@ -362,7 +374,7 @@ export const CartProvider = ({ children }) => {
         type: CART_ACTIONS.UPDATE_ITEM,
         payload: {
           productId,
-          updates: { quantity: newQuantity }
+          updates: { quantity }
         }
       });
 
@@ -378,6 +390,7 @@ export const CartProvider = ({ children }) => {
   const removeFromCart = async (productId) => {
     try {
       dispatch({ type: CART_ACTIONS.REMOVE_ITEM, payload: { productId } });
+      
       toast.success('Item removed from cart');
       return { success: true };
     } catch (error) {
@@ -387,18 +400,15 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  // Clear entire cart
+  // Clear cart
   const clearCart = async () => {
     try {
       dispatch({ type: CART_ACTIONS.CLEAR_CART });
       
       if (isAuthenticated && user?.uid) {
         await databaseService.clearCart(user.uid);
-      } else {
-        localStorage.removeItem('nutrition_shop_cart');
       }
       
-      toast.success('Cart cleared');
       return { success: true };
     } catch (error) {
       console.error('Error clearing cart:', error);
@@ -407,81 +417,67 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  // Get item quantity
-  const getItemQuantity = (productId) => {
-    const item = state.items.find(item => item.productId === productId);
-    return item ? item.quantity : 0;
-  };
-
-  // Check if item is in cart
-  const isInCart = (productId) => {
-    return state.items.some(item => item.productId === productId);
-  };
-
-  // Get cart summary
-  const getCartSummary = () => {
-    return {
-      items: state.items,
-      totalItems: state.totalItems,
-      subtotal: state.subtotal,
-      tax: state.tax,
-      shipping: state.shipping,
-      discount: state.discount,
-      totalAmount: state.totalAmount
-    };
-  };
-
-  // Validate cart before checkout
+  // Validate cart items
   const validateCart = async () => {
     try {
-      const validationErrors = [];
+      const validationResults = await Promise.all(
+        state.items.map(async (item) => {
+          const productResult = await databaseService.getProductById(item.productId);
+          
+          if (!productResult.success || !productResult.data) {
+            return { productId: item.productId, valid: false, reason: 'Product no longer exists' };
+          }
 
-      // Check minimum order amount
-      if (state.subtotal < BUSINESS_CONSTANTS.ORDER_LIMITS.MIN_ORDER_AMOUNT) {
-        validationErrors.push(
-          `Minimum order amount is ₹${BUSINESS_CONSTANTS.ORDER_LIMITS.MIN_ORDER_AMOUNT}`
-        );
-      }
+          const product = productResult.data;
+          
+          if (!product.active) {
+            return { productId: item.productId, valid: false, reason: 'Product is no longer available' };
+          }
 
-      // Check maximum order amount
-      if (state.subtotal > BUSINESS_CONSTANTS.ORDER_LIMITS.MAX_ORDER_AMOUNT) {
-        validationErrors.push(
-          `Maximum order amount is ₹${BUSINESS_CONSTANTS.ORDER_LIMITS.MAX_ORDER_AMOUNT}`
-        );
-      }
+          if (product.inventory <= 0) {
+            return { productId: item.productId, valid: false, reason: 'Product is out of stock' };
+          }
 
-      // Check item count
-      if (state.items.length > BUSINESS_CONSTANTS.ORDER_LIMITS.MAX_ITEMS_PER_ORDER) {
-        validationErrors.push(
-          `Maximum ${BUSINESS_CONSTANTS.ORDER_LIMITS.MAX_ITEMS_PER_ORDER} items per order`
-        );
-      }
+          if (item.quantity > product.inventory) {
+            return { 
+              productId: item.productId, 
+              valid: false, 
+              reason: `Only ${product.inventory} items available`,
+              maxQuantity: product.inventory
+            };
+          }
 
-      // Validate each item's stock
-      for (const item of state.items) {
-        const productResult = await databaseService.getProductById(item.productId);
-        if (!productResult.success || !productResult.data) {
-          validationErrors.push(`Product ${item.name} is no longer available`);
-          continue;
-        }
+          if (product.price !== item.price) {
+            return {
+              productId: item.productId,
+              valid: true,
+              priceChanged: true,
+              oldPrice: item.price,
+              newPrice: product.price
+            };
+          }
 
-        const product = productResult.data;
-        if (product.inventory < item.quantity) {
-          validationErrors.push(
-            `Only ${product.inventory} units of ${item.name} available`
-          );
-        }
-      }
+          return { productId: item.productId, valid: true };
+        })
+      );
+
+      const invalidItems = validationResults.filter(result => !result.valid);
+      const priceChanges = validationResults.filter(result => result.priceChanged);
 
       return {
-        valid: validationErrors.length === 0,
-        errors: validationErrors
+        success: true,
+        isValid: invalidItems.length === 0,
+        invalidItems,
+        priceChanges,
+        message: invalidItems.length > 0 
+          ? 'Some items in your cart are no longer available' 
+          : 'Cart is valid'
       };
     } catch (error) {
       console.error('Error validating cart:', error);
       return {
-        valid: false,
-        errors: ['Failed to validate cart. Please try again.']
+        success: false,
+        error: 'Failed to validate cart. Please try again.'
       };
     }
   };
@@ -513,10 +509,33 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  // Clear error
-  const clearError = () => {
-    dispatch({ type: CART_ACTIONS.CLEAR_ERROR });
+  // Get item quantity in cart
+  const getItemQuantity = (productId) => {
+    const item = state.items.find(i => i.productId === productId);
+    return item ? item.quantity : 0;
   };
+
+  // Check if item is in cart
+  const isInCart = (productId) => {
+    return state.items.some(item => item.productId === productId);
+  };
+
+  // Get cart summary
+  const getCartSummary = () => {
+    return {
+      totalItems: state.totalItems,
+      subtotal: state.subtotal,
+      tax: state.tax,
+      shipping: state.shipping,
+      discount: state.discount,
+      totalAmount: state.totalAmount
+    };
+  };
+
+  // Clear error - wrapped in useCallback to prevent infinite loops
+  const clearError = useCallback(() => {
+    dispatch({ type: CART_ACTIONS.CLEAR_ERROR });
+  }, []);
 
   // Context value
   const value = {

@@ -14,12 +14,15 @@
       ".write": "auth != null && (root.child('admins').child(auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() == 'admin')"
     },
     "users": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).exists()",
+      ".indexOn": ["email", "role", "createdAt"],
       "$userId": {
         ".read": "auth != null && (auth.uid == $userId || root.child('admins').child(auth.uid).exists())",
         ".write": "auth != null && auth.uid == $userId"
       }
     },
     "orders": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).exists()",
       ".indexOn": ["userId", "status", "createdAt"],
       "$orderId": {
         ".read": "auth != null && (data.child('userId').val() == auth.uid || root.child('admins').child(auth.uid).exists())",
@@ -39,7 +42,8 @@
     },
     "inventory": {
       ".read": "auth != null && root.child('admins').child(auth.uid).exists()",
-      ".write": "auth != null && root.child('admins').child(auth.uid).exists()"
+      ".write": "auth != null && root.child('admins').child(auth.uid).exists()",
+      ".indexOn": ["productId", "sku", "status"]
     },
     "carts": {
       "$userId": {

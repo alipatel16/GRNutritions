@@ -40,8 +40,7 @@ const AdminOrders = lazy(() => import('./pages/Admin/Orders/AdminOrders'));
 const AdminInventory = lazy(() => import('./pages/Admin/Inventory/AdminInventory'));
 const AdminUsers = lazy(() => import('./pages/Admin/Users/AdminUsers'));
 const AdminCategories = lazy(() => import('./pages/Admin/Categories/AdminCategories'));
-
-// const AdminSettings = lazy(() => import('./pages/Admin/Settings/AdminSettings'));
+const AdminSettings = lazy(() => import('./pages/Admin/Settings/AdminSettings'));
 
 function App() {
   return (
@@ -186,7 +185,7 @@ function App() {
                         <Route path="users" element={<AdminUsers />} />
                         <Route path="reviews" element={<AdminDashboard />} />
                         <Route path="analytics" element={<AdminDashboard />} />
-                        {/* <Route path="settings" element={<AdminSettings />} /> */}
+                        <Route path="settings" element={<AdminSettings />} />
                       </Routes>
                     </AdminLayout>
                   </ProtectedRoute>

@@ -33,6 +33,9 @@ import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../../context/CartContext/CartContext';
 import { useAuth } from '../../../context/AuthContext/AuthContext';
 
+// Components
+import Base64Image from '../../common/Base64Image/Base64Image';
+
 // Utils
 import { formatPrice } from '../../../utils/helpers/formatters';
 import { getInventoryStatus } from '../../../utils/constants/orderStatus';
@@ -67,13 +70,6 @@ const ImageContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center'
-}));
-
-const ProductImage = styled(CardMedia)(({ theme }) => ({
-  height: '100%',
-  width: '100%',
-  objectFit: 'cover',
-  transition: 'transform 0.3s ease-in-out'
 }));
 
 const BadgeContainer = styled(Box)(({ theme }) => ({
@@ -175,13 +171,26 @@ const ProductCard = ({
   }
 
   // Calculate discount percentage
-  const discountPercentage = product.originalPrice && product.price
-    ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
+  const discountPercentage = product.compareAtPrice && product.price
+    ? Math.round(((product.compareAtPrice - product.price) / product.compareAtPrice) * 100)
     : 0;
 
   // Get inventory status
   const inventoryStatus = getInventoryStatus(product.inventory || 0);
   const isInCart = getItemQuantity(product.id) > 0;
+
+  // Get first image from product (supports both array and single image)
+  const getProductImage = () => {
+    if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+      return product.images[0];
+    }
+    if (product.image) {
+      return product.image;
+    }
+    return null;
+  };
+
+  const productImage = getProductImage();
 
   // Event handlers
   const handleCardClick = (event) => {
@@ -241,25 +250,29 @@ const ProductCard = ({
   return (
     <StyledCard {...props} onClick={handleCardClick}>
       <ImageContainer>
-        {imageLoading && (
-          <Skeleton
-            variant="rectangular"
-            width="100%"
-            height="100%"
-            animation="wave"
-          />
-        )}
-        
-        {!imageError ? (
-          <ProductImage
+        {/* Product Image - Now supports Base64 */}
+        {productImage ? (
+          <Box
             className="product-image"
-            component="img"
-            image={product.images?.[0] || '/placeholder-product.jpg'}
-            alt={product.name}
-            onLoad={handleImageLoad}
-            onError={handleImageError}
-            sx={{ display: imageLoading ? 'none' : 'block' }}
-          />
+            sx={{
+              width: '100%',
+              height: '100%',
+              position: 'relative',
+              transition: 'transform 0.3s ease-in-out'
+            }}
+          >
+            <Base64Image
+              src={productImage}
+              alt={product.name}
+              onLoad={handleImageLoad}
+              onError={handleImageError}
+              fallback="/images/placeholder-product.png"
+              sx={{
+                width: '100%',
+                height: '100%'
+              }}
+            />
+          </Box>
         ) : (
           <Box
             sx={{
@@ -387,9 +400,9 @@ const ProductCard = ({
             {formatPrice(product.price)}
           </Typography>
           
-          {product.originalPrice && product.originalPrice > product.price && (
+          {product.compareAtPrice && product.compareAtPrice > product.price && (
             <OriginalPrice variant="body2">
-              {formatPrice(product.originalPrice)}
+              {formatPrice(product.compareAtPrice)}
             </OriginalPrice>
           )}
         </PriceContainer>

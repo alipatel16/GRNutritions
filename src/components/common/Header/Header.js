@@ -126,8 +126,8 @@ const Header = () => {
   
   // Context hooks
   const { user, isAuthenticated, isAdmin, logout, getDisplayName } = useAuth();
-  const { totalItems, toggleCart } = useCart();
-  const { toggleDrawer, toggleSearch } = useApp();
+  const { totalItems } = useCart();
+  const { toggleDrawer, toggleSearch, toggleCart } = useApp();
 
   // Local state
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);

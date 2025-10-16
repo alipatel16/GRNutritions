@@ -65,8 +65,8 @@ const MobileNavbar = () => {
   
   // Context hooks
   const { isAuthenticated } = useAuth();
-  const { totalItems, toggleCart } = useCart();
-  const { toggleSearch } = useApp();
+  const { totalItems } = useCart();
+  const { toggleSearch, toggleCart } = useApp();
 
   // Determine current route for highlighting
   const getCurrentValue = () => {

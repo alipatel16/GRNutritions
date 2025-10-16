@@ -1,17 +1,39 @@
 // ==================== ProductDetails.jsx ====================
-import React, { useState } from 'react';
+import React from 'react';
 import { Box, Grid, Container } from '@mui/material';
-import ProductImages from './ProductImages';
+import ProductImageGallery from './ProductImageGallery';
 import ProductInfo from './ProductInfo';
 import ProductReviews from './ProductReviews';
 
 const ProductDetails = ({ product, onAddToCart, onAddToWishlist }) => {
+  
+  // Normalize images to ensure compatibility with both formats
+  const getProductImages = () => {
+    // If product has images array (new base64 format)
+    if (product.images && Array.isArray(product.images) && product.images.length > 0) {
+      return product.images;
+    }
+    
+    // If product has single image property (legacy format)
+    if (product.image) {
+      return [product.image];
+    }
+    
+    // No images available
+    return [];
+  };
+
+  const productImages = getProductImages();
+
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Grid container spacing={4}>
-        {/* Product Images */}
+        {/* Product Images Gallery */}
         <Grid item xs={12} md={6}>
-          <ProductImages images={product.images || [product.image]} />
+          <ProductImageGallery 
+            images={productImages}
+            productName={product.name || 'Product'}
+          />
         </Grid>
 
         {/* Product Info */}

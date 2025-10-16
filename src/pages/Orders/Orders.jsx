@@ -65,7 +65,7 @@ const StatusChip = styled(Chip)(({ theme, statuscolor }) => ({
 const Orders = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { orders, loading, error, loadUserOrders } = useOrders();
+  const { orders, loading, error, loadOrders } = useOrders();
   
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,9 +73,9 @@ const Orders = () => {
 
   useEffect(() => {
     if (user) {
-      loadUserOrders(user.uid);
+      loadOrders(user.uid);
     }
-  }, [user, loadUserOrders]);
+  }, [user, loadOrders]);
 
   useEffect(() => {
     filterOrders();

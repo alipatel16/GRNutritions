@@ -25,20 +25,24 @@ const MainContent = styled(Box)(({ theme }) => ({
   flex: 1,
   display: 'flex',
   flexDirection: 'column',
-  paddingTop: theme.spacing(8), // Account for fixed header
+  paddingTop: '80px', // Fixed: Increased from 64px to 80px for better clearance
   [theme.breakpoints.down('md')]: {
-    paddingTop: theme.spacing(7),
-    paddingBottom: theme.spacing(8) // Account for mobile bottom nav
+    paddingTop: '72px', // Mobile header height + spacing
+    paddingBottom: theme.spacing(9) // Account for mobile bottom nav (increased)
+  },
+  [theme.breakpoints.down('sm')]: {
+    paddingTop: '68px' // Smaller mobile devices
   }
 }));
 
 const ContentWrapper = styled(Container)(({ theme }) => ({
   flex: 1,
-  paddingTop: theme.spacing(2),
+  paddingTop: theme.spacing(3), // Increased from 2 to 3
   paddingBottom: theme.spacing(4),
   [theme.breakpoints.down('sm')]: {
-    paddingLeft: theme.spacing(1),
-    paddingRight: theme.spacing(1)
+    paddingLeft: theme.spacing(2), // Increased from 1 to 2
+    paddingRight: theme.spacing(2),
+    paddingTop: theme.spacing(2)
   }
 }));
 

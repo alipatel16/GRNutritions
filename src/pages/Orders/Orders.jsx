@@ -1,3 +1,4 @@
+// ==================== Orders.jsx ====================
 import React, { useEffect, useState } from 'react';
 import {
   Box,
@@ -73,7 +74,8 @@ const Orders = () => {
 
   useEffect(() => {
     if (user) {
-      loadOrders(user.uid);
+      // Call loadOrders without passing user.uid (it's already in the hook)
+      loadOrders();
     }
   }, [user, loadOrders]);
 
@@ -99,19 +101,21 @@ const Orders = () => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(order => 
-        order.id.toLowerCase().includes(query) ||
-        order.items?.some(item => item.name.toLowerCase().includes(query))
+        order.id?.toLowerCase().includes(query) ||
+        order.orderNumber?.toLowerCase().includes(query) ||
+        order.items?.some(item => item.name?.toLowerCase().includes(query))
       );
     }
-
-    // Sort by date (newest first)
-    filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     setFilteredOrders(filtered);
   };
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
+  };
+
+  const handleSearchChange = (event) => {
+    setSearchQuery(event.target.value);
   };
 
   const handleViewOrder = (orderId) => {
@@ -123,7 +127,6 @@ const Orders = () => {
       case 'delivered':
         return <CheckCircle />;
       case 'cancelled':
-      case 'refunded':
         return <Cancel />;
       case 'shipped':
       case 'out_for_delivery':
@@ -133,15 +136,23 @@ const Orders = () => {
     }
   };
 
-  if (loading) {
+  if (loading && orders.length === 0) {
     return <LoadingSpinner message="Loading your orders..." />;
+  }
+
+  if (error) {
+    return (
+      <OrdersContainer>
+        <Alert severity="error">{error}</Alert>
+      </OrdersContainer>
+    );
   }
 
   return (
     <OrdersContainer maxWidth="lg">
       {/* Page Header */}
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom fontWeight={600}>
+        <Typography variant="h4" gutterBottom fontWeight="bold">
           My Orders
         </Typography>
         <Typography variant="body1" color="text.secondary">
@@ -155,10 +166,9 @@ const Orders = () => {
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              size="small"
               placeholder="Search orders by ID or product name..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={handleSearchChange}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -169,192 +179,129 @@ const Orders = () => {
             />
           </Grid>
           <Grid item xs={12} md={6}>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-              <Button
-                variant="outlined"
-                startIcon={<FilterList />}
-                size="small"
-              >
-                More Filters
-              </Button>
-            </Box>
+            <Tabs value={activeTab} onChange={handleTabChange} variant="scrollable" scrollButtons="auto">
+              <Tab label="All" />
+              <Tab label="Active" />
+              <Tab label="In Transit" />
+              <Tab label="Delivered" />
+              <Tab label="Cancelled" />
+            </Tabs>
           </Grid>
         </Grid>
       </Paper>
 
-      {/* Tabs for Order Status */}
-      <Paper sx={{ mb: 3 }}>
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          variant="scrollable"
-          scrollButtons="auto"
-        >
-          <Tab label={`All (${orders.length})`} />
-          <Tab label="Processing" />
-          <Tab label="Shipped" />
-          <Tab label="Delivered" />
-          <Tab label="Cancelled" />
-        </Tabs>
-      </Paper>
-
-      {/* Error Message */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
-
       {/* Orders List */}
       {filteredOrders.length === 0 ? (
-        <Paper sx={{ p: 6, textAlign: 'center' }}>
-          <ShoppingBag sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-          <Typography variant="h6" gutterBottom>
-            {searchQuery ? 'No orders found' : 'No orders yet'}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" paragraph>
-            {searchQuery 
-              ? 'Try adjusting your search or filters' 
-              : 'Start shopping to see your orders here'
-            }
-          </Typography>
-          {!searchQuery && (
-            <Button
-              variant="contained"
-              onClick={() => navigate(ROUTES.PRODUCTS)}
-              sx={{ mt: 2 }}
-            >
-              Start Shopping
-            </Button>
-          )}
-        </Paper>
+        <Card>
+          <CardContent>
+            <Box sx={{ textAlign: 'center', py: 8 }}>
+              <ShoppingBag sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                No orders found
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                {searchQuery
+                  ? "No orders match your search criteria"
+                  : "You haven't placed any orders yet"}
+              </Typography>
+              <Button variant="contained" onClick={() => navigate(ROUTES.PRODUCTS)}>
+                Start Shopping
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
       ) : (
         <Box>
           {filteredOrders.map((order) => {
-            const statusConfig = getOrderStatus(order.status);
+            const statusInfo = getOrderStatus(order.status);
             
             return (
               <OrderCard key={order.id}>
                 <CardContent>
-                  {/* Order Header */}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                    <Box>
-                      <Typography variant="h6" fontWeight={600}>
-                        Order #{order.id}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Placed on {formatDateTime(order.createdAt)}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ textAlign: 'right' }}>
-                      <StatusChip
-                        icon={getStatusIcon(order.status)}
-                        label={statusConfig?.label || order.status}
-                        statuscolor={statusConfig?.color}
-                        size="small"
-                      />
-                      <Typography variant="h6" fontWeight={600} sx={{ mt: 1 }}>
-                        {formatPrice(order.totalAmount)}
-                      </Typography>
-                    </Box>
-                  </Box>
-
-                  <Divider sx={{ my: 2 }} />
-
-                  {/* Order Items */}
-                  <List disablePadding>
-                    {order.items?.slice(0, 2).map((item, index) => (
-                      <ListItem key={index} disableGutters>
-                        <ListItemAvatar>
-                          <Avatar
-                            src={item.image}
-                            alt={item.name}
-                            variant="rounded"
-                            sx={{ width: 56, height: 56 }}
-                          >
-                            {item.name.charAt(0)}
-                          </Avatar>
-                        </ListItemAvatar>
-                        <ListItemText
-                          primary={item.name}
-                          secondary={`Qty: ${item.quantity} × ${formatPrice(item.price)}`}
+                  <Grid container spacing={2}>
+                    {/* Order Header */}
+                    <Grid item xs={12}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Box>
+                          <Typography variant="h6" fontWeight="bold">
+                            Order #{order.orderNumber || order.id}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Placed on {formatDateTime(order.createdAt)}
+                          </Typography>
+                        </Box>
+                        <StatusChip
+                          icon={getStatusIcon(order.status)}
+                          label={statusInfo?.label || order.status}
+                          statuscolor={statusInfo?.color}
                         />
-                      </ListItem>
-                    ))}
-                  </List>
+                      </Box>
+                      <Divider />
+                    </Grid>
 
-                  {order.items?.length > 2 && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      +{order.items.length - 2} more item(s)
-                    </Typography>
-                  )}
+                    {/* Order Items */}
+                    <Grid item xs={12} md={8}>
+                      <List>
+                        {order.items?.slice(0, 3).map((item, index) => (
+                          <ListItem key={index} disableGutters>
+                            <ListItemAvatar>
+                              <Avatar
+                                src={item.image || item.imageUrl}
+                                alt={item.name}
+                                variant="rounded"
+                              />
+                            </ListItemAvatar>
+                            <ListItemText
+                              primary={item.name}
+                              secondary={`Quantity: ${item.quantity} × ${formatPrice(item.price)}`}
+                            />
+                          </ListItem>
+                        ))}
+                        {order.items?.length > 3 && (
+                          <Typography variant="body2" color="text.secondary">
+                            +{order.items.length - 3} more items
+                          </Typography>
+                        )}
+                      </List>
+                    </Grid>
 
-                  <Divider sx={{ my: 2 }} />
-
-                  {/* Action Buttons */}
-                  <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<Visibility />}
-                      onClick={() => handleViewOrder(order.id)}
-                    >
-                      View Details
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<Receipt />}
-                    >
-                      Download Invoice
-                    </Button>
-                    {order.status === 'delivered' && (
-                      <Button
-                        variant="contained"
-                        size="small"
-                        onClick={() => navigate(`${ROUTES.PRODUCTS}/${order.items[0].productId}`)}
-                      >
-                        Buy Again
-                      </Button>
-                    )}
-                  </Box>
+                    {/* Order Summary */}
+                    <Grid item xs={12} md={4}>
+                      <Box sx={{ textAlign: { xs: 'left', md: 'right' } }}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Total Amount
+                        </Typography>
+                        <Typography variant="h5" fontWeight="bold" color="primary" gutterBottom>
+                          {formatPrice(order.totalAmount || 0)}
+                        </Typography>
+                        <Button
+                          variant="outlined"
+                          startIcon={<Visibility />}
+                          onClick={() => handleViewOrder(order.id)}
+                          fullWidth
+                          sx={{ mt: 1 }}
+                        >
+                          View Details
+                        </Button>
+                        {order.trackingNumber && (
+                          <Button
+                            variant="text"
+                            startIcon={<LocalShipping />}
+                            fullWidth
+                            size="small"
+                            sx={{ mt: 1 }}
+                          >
+                            Track Order
+                          </Button>
+                        )}
+                      </Box>
+                    </Grid>
+                  </Grid>
                 </CardContent>
               </OrderCard>
             );
           })}
         </Box>
-      )}
-
-      {/* Summary Box */}
-      {filteredOrders.length > 0 && (
-        <Paper sx={{ p: 3, mt: 4 }}>
-          <Grid container spacing={3}>
-            <Grid item xs={12} sm={4}>
-              <Typography variant="body2" color="text.secondary">
-                Total Orders
-              </Typography>
-              <Typography variant="h5" fontWeight={600}>
-                {orders.length}
-              </Typography>
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Typography variant="body2" color="text.secondary">
-                Total Spent
-              </Typography>
-              <Typography variant="h5" fontWeight={600}>
-                {formatPrice(orders.reduce((sum, order) => sum + order.totalAmount, 0))}
-              </Typography>
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Typography variant="body2" color="text.secondary">
-                Delivered Orders
-              </Typography>
-              <Typography variant="h5" fontWeight={600}>
-                {orders.filter(o => o.status === 'delivered').length}
-              </Typography>
-            </Grid>
-          </Grid>
-        </Paper>
       )}
     </OrdersContainer>
   );

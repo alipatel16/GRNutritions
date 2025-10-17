@@ -47,7 +47,7 @@ const AddressManager = ({ onSelectAddress, selectionMode = false }) => {
 
   const handleAddAddress = async (addressData) => {
     try {
-      await databaseService.addAddress(user.uid, addressData);
+      await databaseService.addUserAddress(user.uid, addressData);
       toast.messages.addressAdded();
       loadAddresses();
       setDialogOpen(false);

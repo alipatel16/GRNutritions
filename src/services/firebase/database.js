@@ -425,12 +425,22 @@ class DatabaseService {
     return this.read(`orders/${orderId}`);
   }
 
-  async getUserOrders(userId, limit = 10) {
-    return this.query("orders", {
+  async getUserOrders(userId, filters = {}) {
+    // Extract limit from filters or use default
+    const limit = filters.limit || 10;
+
+    // Build query filters
+    const queryFilters = {
       orderBy: { type: "child", key: "userId" },
       equalTo: userId,
       limitToFirst: limit,
-    });
+      ...filters,
+    };
+
+    // Remove the limit property to avoid duplication
+    delete queryFilters.limit;
+
+    return this.query("orders", queryFilters);
   }
 
   async updateOrderStatus(orderId, status) {

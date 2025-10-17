@@ -17,6 +17,8 @@ import ProtectedRoute from './components/common/ProtectedRoute/ProtectedRoute';
 
 // Constants
 import { ROUTES } from './utils/constants/routes';
+import Addresses from './pages/Addresses/Addresses';
+import Settings from './pages/Settings/Settings';
 
 // Lazy load pages for better performance
 const Home = lazy(() => import('./pages/Home/Home'));
@@ -136,10 +138,10 @@ function App() {
                         <Route path="profile" element={<Profile />} />
                         <Route path="orders" element={<Orders />} />
                         <Route path="orders/:id" element={<Orders />} />
-                        <Route path="addresses" element={<Profile />} />
+                        <Route path="addresses" element={<Addresses />} />
                         <Route path="wishlist" element={<Profile />} />
                         <Route path="reviews" element={<Profile />} />
-                        <Route path="settings" element={<Profile />} />
+                        <Route path="settings" element={<Settings />} />
                       </Routes>
                     </MainLayout>
                   </ProtectedRoute>

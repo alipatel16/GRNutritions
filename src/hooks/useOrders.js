@@ -1,7 +1,7 @@
 // ==================== useOrders.js ====================
 import { useState, useEffect, useCallback } from 'react';
 import databaseService from '../services/firebase/database';
-import { useAuth } from './useAuth';
+import { useAuth } from '../context/AuthContext/AuthContext';
 import toast from '../services/notification/toast';
 
 export const useOrders = () => {
@@ -18,7 +18,14 @@ export const useOrders = () => {
     try {
       setLoading(true);
       setError(null);
-      const result = await databaseService.getUserOrders(user.uid, filters);
+      
+      // Ensure filters has proper structure
+      const queryFilters = {
+        limit: 50, // Default limit
+        ...filters
+      };
+      
+      const result = await databaseService.getUserOrders(user.uid, queryFilters);
       
       if (result.success) {
         setOrders(result.data || []);
@@ -62,7 +69,7 @@ export const useOrders = () => {
   const cancelOrder = useCallback(async (orderId, reason) => {
     try {
       setLoading(true);
-      const result = await databaseService.cancelOrder(orderId, reason);
+      const result = await databaseService.updateOrderStatus(orderId, 'cancelled');
       
       if (result.success) {
         toast.success('Order cancelled successfully');
@@ -91,3 +98,5 @@ export const useOrders = () => {
     cancelOrder
   };
 };
+
+export default useOrders;

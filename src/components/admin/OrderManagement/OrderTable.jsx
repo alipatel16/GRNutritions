@@ -1,4 +1,4 @@
-// ==================== OrderTable.jsx ====================
+// ==================== OrderTable.jsx - FIXED ====================
 import React from 'react';
 import {
   Table,
@@ -16,6 +16,21 @@ import {
 import { formatPrice, formatDate } from '../../../utils/helpers/formatters';
 import { getOrderStatus, ORDER_STATUS } from '../../../utils/constants/orderStatus';
 import LoadingSpinner from '../../common/LoadingSpinner/LoadingSpinner';
+
+// Helper function to map order status to MUI Chip colors
+const getChipColor = (statusId) => {
+  const colorMap = {
+    'pending': 'warning',
+    'confirmed': 'info',
+    'processing': 'secondary',
+    'shipped': 'primary',
+    'delivered': 'success',
+    'cancelled': 'error',
+    'returned': 'default',
+    'refunded': 'default'
+  };
+  return colorMap[statusId] || 'default';
+};
 
 const OrderTable = ({ orders, loading, onStatusUpdate }) => {
   if (loading) {
@@ -53,7 +68,7 @@ const OrderTable = ({ orders, loading, onStatusUpdate }) => {
                 <TableCell>
                   <Chip
                     label={status?.label || order.status}
-                    color={status?.color || 'default'}
+                    color={getChipColor(order.status)}
                     size="small"
                   />
                 </TableCell>

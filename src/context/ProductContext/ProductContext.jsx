@@ -96,6 +96,8 @@ const productReducer = (state, action) => {
       return {
         ...state,
         products: [...state.products, action.payload],
+        loading: false,
+        error: null,
         lastUpdated: Date.now()
       };
 
@@ -108,6 +110,8 @@ const productReducer = (state, action) => {
         currentProduct: state.currentProduct?.id === action.payload.id 
           ? action.payload 
           : state.currentProduct,
+        loading: false,
+        error: null,
         lastUpdated: Date.now()
       };
 

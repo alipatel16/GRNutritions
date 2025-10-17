@@ -1,4 +1,4 @@
-// ==================== ProductManagement.jsx ====================
+// ==================== ProductManagement.jsx - FIXED ====================
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -19,28 +19,36 @@ const ProductManagement = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
 
+  // FIXED: Load products only once on mount, not when loadProducts changes
   useEffect(() => {
     loadProducts();
-  }, [loadProducts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - only run once
 
   const handleAddProduct = async (productData) => {
     try {
-      await createProduct(productData);
-      toast.messages.productAdded();
-      setDialogOpen(false);
+      const result = await createProduct(productData);
+      if (result.success) {
+        toast.messages.productAdded();
+        setDialogOpen(false);
+        // Products are already updated in context via ADD_PRODUCT action
+      }
     } catch (error) {
-      toast.error(error.message);
+      toast.error(error.message || 'Failed to add product');
     }
   };
 
   const handleEditProduct = async (productData) => {
     try {
-      await updateProduct(editingProduct.id, productData);
-      toast.messages.productUpdated();
-      setDialogOpen(false);
-      setEditingProduct(null);
+      const result = await updateProduct(editingProduct.id, productData);
+      if (result.success) {
+        toast.messages.productUpdated();
+        setDialogOpen(false);
+        setEditingProduct(null);
+        // Products are already updated in context via UPDATE_PRODUCT action
+      }
     } catch (error) {
-      toast.error(error.message);
+      toast.error(error.message || 'Failed to update product');
     }
   };
 
@@ -48,10 +56,13 @@ const ProductManagement = () => {
     if (!window.confirm('Are you sure you want to delete this product?')) return;
     
     try {
-      await deleteProduct(productId);
-      toast.messages.productDeleted();
+      const result = await deleteProduct(productId);
+      if (result.success) {
+        toast.messages.productDeleted();
+        // Products are already updated in context via REMOVE_PRODUCT action
+      }
     } catch (error) {
-      toast.error(error.message);
+      toast.error(error.message || 'Failed to delete product');
     }
   };
 
@@ -63,6 +74,11 @@ const ProductManagement = () => {
   const openEditDialog = (product) => {
     setEditingProduct(product);
     setDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+    setEditingProduct(null);
   };
 
   return (
@@ -89,7 +105,7 @@ const ProductManagement = () => {
 
       <Dialog
         open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
+        onClose={handleCloseDialog}
         maxWidth="md"
         fullWidth
       >
@@ -100,7 +116,7 @@ const ProductManagement = () => {
           <ProductForm
             initialData={editingProduct}
             onSubmit={editingProduct ? handleEditProduct : handleAddProduct}
-            onCancel={() => setDialogOpen(false)}
+            onCancel={handleCloseDialog}
           />
         </DialogContent>
       </Dialog>
